@@ -1,8 +1,8 @@
 package com.bryanscode.customer;
 
+import com.bryanscode.amqp.RabbitMQMessageProducer;
 import com.bryanscode.clients.fraud.FraudCheckResponse;
 import com.bryanscode.clients.fraud.FraudClient;
-import com.bryanscode.clients.notification.NotificationClient;
 import com.bryanscode.clients.notification.NotificationRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,7 +13,7 @@ public class CustomerService {
 
   private final CustomerRepository customerRepository;
   private final FraudClient fraudClient;
-  private final NotificationClient notificationClient;
+  private final RabbitMQMessageProducer rabbitMQMessageProducer;
 
 
   public void registerCustomer(CustomerRegistrationRequest request) {
@@ -32,13 +32,16 @@ public class CustomerService {
       throw new IllegalStateException("fraudster");
     }
 
-    notificationClient.sendNotification(
-        new NotificationRequest(
-            customer.getId(),
-            customer.getEmail(),
-            String.format("Hi %s, welcome to Bryanscode...",
-                customer.getFirstName())
-        )
+    NotificationRequest notificationRequest = new NotificationRequest(
+        customer.getId(),
+        customer.getEmail(),
+        String.format("Hi %s, welcome to Bryanscode...",
+            customer.getFirstName())
+    );
+    rabbitMQMessageProducer.publish(
+        notificationRequest,
+        "internal.exchange",
+        "internal.notification.routing-key"
     );
   }
 }
